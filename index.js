@@ -5,6 +5,7 @@ var logger = require('morgan');
 
 var indexRouter = require('./routes/index');
 var membersRouter = require('./routes/members');
+var quotesRouter = require('./routes/quotes');
 
 /* CORS */
 var allowCrossDomain = function(req, res, next) {
@@ -25,5 +26,6 @@ index.use(express.static(path.join(__dirname, 'public')));
 
 index.use('/', indexRouter);
 index.use('/members', membersRouter);
+index.use('/quotes', quotesRouter.router);
 
 module.exports = index;
