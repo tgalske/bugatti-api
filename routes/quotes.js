@@ -3,164 +3,144 @@ var router = express.Router();
 const bodyParser = require('body-parser');
 router.use(bodyParser.json());
 router.use(bodyParser.urlencoded({ extended: true }));
-const dynamo = require('../dynamo-wrapper');
+const mysql = require('../mysql-wrapper');
+const uuidv1 = require('uuid/v1');
 
 // constants
-const QUOTES_TABLE_NAME = 'Quotes';
-const RESPONSE_SUCCESS = {success : true};
-const RESPONSE_FAILURE = {success: false};
-
-var responsePackage = {};
+const QUOTES_TABLE_NAME = 'quotes';
+const TABLE_KEYS = ['quote_text', 'target_member_id', 'author_member_id', 'content_id'];
 
 /* GET all quotes. */
 router.get('/', function(req, res) {
-  dynamo.scan({ TableName: QUOTES_TABLE_NAME}, (err, data) => {
-    if (err) {
-      Object.assign(err, RESPONSE_FAILURE);
-      res.send(err);
-    } else {
-      Object.assign(data, RESPONSE_SUCCESS);
-      res.send(data);
-    }
-  });
+  getAllQuotes( (payload) => res.send(payload));
 });
 
 /* GET a single quote */
 router.get('/:quote_id', (req, res) => {
-
-  const params = {
-    TableName: QUOTES_TABLE_NAME,
-    Key: {
-      "quote_id": req.params.quote_id,
-    }
-  };
-  dynamo.getItem(params, (err, data) => {
-    if (err) {
-      Object.assign(err, RESPONSE_FAILURE);
-      res.send(err);
-    } else {
-      Object.assign(data, RESPONSE_SUCCESS);
-      res.send(data);
-    }
-  });
+  const quote_id = req.params.quote_id;
+  getQuote(quote_id, (payload) => res.send(payload));
 });
 
 /* GET all quotes by a member */
 router.get('/member/:member_id', (req, res) => {
   const member_id = req.params.member_id;
   getQuotesByMember(member_id, (payload) => {res.send(payload)});
-
 });
 
 /* POST a new quote */
 router.post('/', (req, res) => {
-
-  const uuidv1 = require('uuid/v1');
-
-  var newItem = req.body;
-  newItem.quote_id = uuidv1();
-
-  const newQuote = {
-    "TableName" : QUOTES_TABLE_NAME,
-    "Item" : newItem
-  };
-  dynamo.putItem(newQuote, (err, data) => {
-    if (err) {
-      Object.assign(err, RESPONSE_FAILURE);
-      res.send(err);
-    } else {
-      Object.assign(data, RESPONSE_SUCCESS);
-      res.send(data);
-    }
-  });
-
+  createQuote(req.body, (payload) => res.send(payload));
 });
 
 /* PUT updated properties on a single quote */
 router.put('/:quote_id', (req, res) => {
-  const targetQuote = req.params.quote_id;
-  const updatesToPerform = Object.entries(req.body); // array of key:value
-
-  const requests = updatesToPerform.map((update) => {
-    return new Promise((resolve) => performPut(targetQuote, update, resolve));
-  });
-
-  Promise.all(requests)
-    .catch( () => res.send(RESPONSE_FAILURE))
-    .then(() => res.send(RESPONSE_SUCCESS));
+  const quote_id = req.params.quote_id;
+  updateQuote(quote_id, req.body, (payload) => res.send(payload));
 });
-
-/* helper method for PUT requests that updates a single key:value pair in the database */
-function performPut(targetQuote, keyValuePair, callback) {
-  const key = keyValuePair[0];
-  const newValue = keyValuePair[1];
-
-  var updateQuery = {
-    "TableName" : QUOTES_TABLE_NAME,
-    "Key" : {
-      "quote_id" : targetQuote
-    },
-    "UpdateExpression" : {},
-    "ExpressionAttributeValues" : {}
-  };
-
-  // syntax: set firstname = :firstname
-  updateQuery.UpdateExpression = "set " + key + " = :" + key;
-
-  // syntax: :firstname
-  const targetKey = ":" + key;
-
-  // syntax: ":firstname" : firstname
-  updateQuery.ExpressionAttributeValues[targetKey] = newValue;
-  dynamo.updateItem(updateQuery, (err, data) => {});
-
-  callback();
-}
 
 /* DELETE a quote by ID */
 router.delete('/:quote_id', (req, res) => {
-  const targetQuote = req.params.quote_id;
-  const deleteQuery = {
-    "TableName" : QUOTES_TABLE_NAME,
-    "Key" : {
-      "quote_id" : targetQuote
-    }
-  };
-  dynamo.deleteItem(deleteQuery, (err, data) => {
-    if (err) {
-      Object.assign(err, RESPONSE_FAILURE);
-      res.send(err);
-    } else {
-      Object.assign(data, RESPONSE_SUCCESS);
-      res.send(data);
-    }
-  });
+  const quote_id = req.params.quote_id;
+  deleteQuote(quote_id, (payload) => res.send(payload));
 });
 
 // FUNCTIONS
 
-function getQuotesByMember(member_id, callback) {
-  const params = {
-    TableName: QUOTES_TABLE_NAME,
-    FilterExpression: '#target = :member',
-    ExpressionAttributeNames: {
-      '#target': 'target_member_id',
-    },
-    ExpressionAttributeValues: {
-      ':member': member_id,
-    },
-  };
-
-  dynamo.scan(params, (err, data) => {
-    if (err) {
-      Object.assign(err, RESPONSE_FAILURE);
-      callback(err);
+/* Get all quotes */
+function getAllQuotes(callback) {
+  const queryStatement = 'SELECT * FROM ' + QUOTES_TABLE_NAME +
+    ' ORDER BY ' + QUOTES_TABLE_NAME + '.quote_id DESC';
+  mysql.query(queryStatement, (error, results) => {
+    if (error) {
+      callback(error);
     } else {
-      Object.assign(data, RESPONSE_SUCCESS);
-      callback(data);
+      callback(results);
     }
   });
-};
+}
+
+/* Get a single quote by its ID */
+function getQuote(quote_id, callback) {
+  const queryStatement = 'SELECT * FROM ' + QUOTES_TABLE_NAME +
+    ' WHERE ' + QUOTES_TABLE_NAME + '.quote_id = ?';
+  mysql.query(queryStatement, [quote_id], (error, results) => {
+    if (error) {
+      callback(error);
+    } else {
+      callback(results[0]);
+    }
+  });
+}
+
+/* Get all quotes by a single member */
+function getQuotesByMember(member_id, callback) {
+  const queryStatement = 'SELECT ' + QUOTES_TABLE_NAME + '.quote_text FROM ' + QUOTES_TABLE_NAME +
+    ' WHERE ' + QUOTES_TABLE_NAME + '.target_member_id = ?';
+  mysql.query(queryStatement, [member_id], (error, results) => {
+    if (error) {
+      callback(error);
+    } else {
+      callback(results);
+    }
+  });
+}
+
+/* Create a new quote */
+function createQuote(quoteInformation, callback) {
+  var cleanedQuoteInformation = {};
+  cleanedQuoteInformation.quote_id = uuidv1();
+
+  TABLE_KEYS.forEach( currentKey => {
+    cleanedQuoteInformation[currentKey] = quoteInformation[currentKey] ? quoteInformation[currentKey] : null;
+  });
+
+  const queryStatement = 'INSERT INTO ' + QUOTES_TABLE_NAME + ' SET ?';
+  mysql.query(queryStatement, [cleanedQuoteInformation], (error, result) => {
+    if (error) {
+      callback(error);
+    } else {
+      callback(result);
+    }
+  });
+}
+
+/* Update a quote */
+function updateQuote(quote_id, updatesToPerform, callback) {
+  var cleanedUpdates = {};
+  TABLE_KEYS.forEach( currentKey => {
+    if (updatesToPerform[currentKey]) {
+      cleanedUpdates[currentKey] = updatesToPerform[currentKey];
+    }
+  });
+
+  // return if there are zero
+  if (Object.keys(cleanedUpdates).length == 0) {
+    callback({ success: false, error: "Zero corrct column names"});
+  }
+
+  const queryStatement = 'UPDATE ' + QUOTES_TABLE_NAME +
+    ' SET ? ' +
+    ' WHERE ' + QUOTES_TABLE_NAME + '.quote_id = ?';
+
+  mysql.query(queryStatement, [cleanedUpdates, quote_id], (error, results) => {
+    if (error) {
+      callback(error);
+    } else {
+      callback(results);
+    }
+  });
+}
+
+function deleteQuote(quote_id, callback) {
+  const queryStatement = 'DELETE FROM ' + QUOTES_TABLE_NAME + ' WHERE quote_id = ?';
+  mysql.query(queryStatement, [quote_id], (error, results) => {
+    if (error) {
+      callback(error);
+    } else {
+      callback(results);
+    }
+  });
+}
 
 module.exports = {
   router: router,

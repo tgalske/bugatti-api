@@ -3,16 +3,13 @@ var router = express.Router();
 const bodyParser = require('body-parser');
 router.use(bodyParser.json());
 router.use(bodyParser.urlencoded({ extended: true }));
-const dynamo = require('../dynamo-wrapper');
+const mysql = require('../mysql-wrapper');
 const quotesRouter = require('./quotes');
-
+const uuidv1 = require('uuid/v1');
 
 // CONSTANTS
-const MEMBERS_TABLE_NAME = 'Members';
-const QUOTES_TABLE_NAME = 'Quotes';
-const RESPONSE_SUCCESS = {success : true};
-const RESPONSE_FAILURE = {success: false};
-
+const MEMBERS_TABLE_NAME = 'members';
+const TABLE_KEYS = ["firstname", "lastname", "nickname", "phone"];
 
 // ROUTES
 
@@ -38,57 +35,29 @@ router.get('/:member_id', (req, res) => {
     })
   ])
     .then( (promiseResponse) => {
-      var memberResponse = promiseResponse[0].Item;
-      memberResponse.quotes = promiseResponse[1].Items;
+      var memberResponse = promiseResponse[0][0];
+
+      // pull quote_text from array of quote objects
+      var quotesArr = [];
+      promiseResponse[1].forEach( newQuote => {
+        quotesArr.push(newQuote.quote_text);
+      });
+      memberResponse.quotes = quotesArr;
+
       res.send(memberResponse);
     });
 });
 
 /* POST a new member */
 router.post('/', (req, res) => {
-  createNewMember( (payload) => res.send(payload));
+  createNewMember( req.body, (payload) => res.send(payload));
 });
 
 /* PUT updated properties on a single member */
 router.put('/:member_id', (req, res) => {
   const targetMember = req.params.member_id;
-  const updatesToPerform = Object.entries(req.body); // array of key:value
-
-  const requests = updatesToPerform.map((update) => {
-    return new Promise((resolve) => performPut(targetMember, update, resolve));
-  });
-
-  Promise.all(requests)
-    .catch( () => res.send(RESPONSE_FAILURE))
-    .then(() => res.send(RESPONSE_SUCCESS));
+  updateMember(targetMember, req.body, (payload) => res.send(payload));
 });
-
-/* helper method for PUT requests that updates a single key:value pair in the database */
-function performPut(targetMember, keyValuePair, callback) {
-  const key = keyValuePair[0];
-  const newValue = keyValuePair[1];
-
-  var updateQuery = {
-    "TableName" : MEMBERS_TABLE_NAME,
-    "Key" : {
-      "member_id" : targetMember
-    },
-    "UpdateExpression" : {},
-    "ExpressionAttributeValues" : {}
-  };
-
-  // syntax: set firstname = :firstname
-  updateQuery.UpdateExpression = "set " + key + " = :" + key;
-
-  // syntax: :firstname
-  const targetKey = ":" + key;
-
-  // syntax: ":firstname" : firstname
-  updateQuery.ExpressionAttributeValues[targetKey] = newValue;
-  dynamo.updateItem(updateQuery, (err, data) => {});
-
-  callback();
-}
 
 /* DELETE a member by ID */
 router.delete('/:member_id', (req, res) => {
@@ -102,78 +71,82 @@ router.delete('/:member_id', (req, res) => {
 
 /* Get all members */
 function getMembers(callback) {
-  const params = {
-    TableName: MEMBERS_TABLE_NAME
-  };
-
-  dynamo.scan(params, (err, data) => {
-    if (err) {
-      Object.assign(err, RESPONSE_FAILURE);
-      callback(err);
+  mysql.query('SELECT * FROM ' + MEMBERS_TABLE_NAME, function (error, results) {
+    if (error) {
+      callback(error);
     } else {
-      Object.assign(data, RESPONSE_SUCCESS);
-      callback(data);
+      callback(results);
     }
   });
-
 }
 
 /* Get a single member */
 function getMember(member_id, callback) {
-  const params = {
-    TableName: MEMBERS_TABLE_NAME,
-    Key: {
-      "member_id": member_id,
-    }
-  };
-  dynamo.getItem(params, (err, data) => {
-    if (err) {
-      Object.assign(err, RESPONSE_FAILURE);
-      callback(err);
+  mysql.query('SELECT * FROM ' + MEMBERS_TABLE_NAME +
+    ' WHERE ' + MEMBERS_TABLE_NAME + '.member_id= ?', [member_id], (error, results) => {
+    if (error) {
+      callback(error);
     } else {
-      Object.assign(data, RESPONSE_SUCCESS);
-      callback(data);
+      callback(results);
     }
   });
 }
 
 /* Create a new member */
-function createNewMember(callback) {
-  const uuidv1 = require('uuid/v1');
+function createNewMember(memberInformation, callback) {
 
-  var newItem = req.body;
-  newItem.member_id = uuidv1();
+  var cleanedMemberInformation = {};
+  cleanedMemberInformation.member_id = uuidv1();
 
-  const params = {
-    "TableName" : MEMBERS_TABLE_NAME,
-    "Item" : newItem
-  };
-  dynamo.putItem(params, (err, data) => {
-    if (err) {
-      Object.assign(err, RESPONSE_FAILURE);
-      callback(err);
+  TABLE_KEYS.forEach( currentKey => {
+    cleanedMemberInformation[currentKey] = memberInformation[currentKey] ? memberInformation[currentKey] : null;
+  });
+
+  const queryStatement = 'INSERT INTO ' + MEMBERS_TABLE_NAME + ' SET ?';
+  mysql.query(queryStatement, [cleanedMemberInformation], (error, result) => {
+    if (error) {
+      callback(error);
     } else {
-      Object.assign(data, RESPONSE_SUCCESS);
-      callback(data);
+      callback(result);
     }
   });
 }
 
+/* Update a member */
+function updateMember(member_id, updatesToPerform, callback) {
+  var cleanedUpdates = {};
+  TABLE_KEYS.forEach( currentKey => {
+    if (updatesToPerform[currentKey]) {
+      cleanedUpdates[currentKey] = updatesToPerform[currentKey];
+    }
+  });
+
+  // return if there are zero
+  if (Object.keys(cleanedUpdates).length == 0) {
+    callback({ success: false, error: "Zero corrct column names"});
+  }
+
+  const queryStatement = 'UPDATE ' + MEMBERS_TABLE_NAME +
+    ' SET ? ' +
+    ' WHERE ' + MEMBERS_TABLE_NAME + '.member_id = ?';
+
+  mysql.query(queryStatement, [cleanedUpdates, member_id], (error, results) => {
+    if (error) {
+      callback(error);
+    } else {
+      callback(results);
+    }
+  })
+}
+
 /* Delete a member */
 function deleteMember(member_id, callback) {
-  const params = {
-    "TableName" : MEMBERS_TABLE_NAME,
-    "Key" : {
-      "member_id" : member_id
-    }
-  };
-  dynamo.deleteItem(params, (err, data) => {
-    if (err) {
-      Object.assign(err, RESPONSE_FAILURE);
-      callback(err);
+  const queryStatement = 'DELETE FROM ' + MEMBERS_TABLE_NAME + ' WHERE member_id = ?';
+  mysql.query(queryStatement, [member_id], (error, results) => {
+    if (error) {
+      callback(error);
     } else {
-      Object.assign(data, RESPONSE_SUCCESS);
-      callback(data);
+      callback(results);
     }
   });
 }
