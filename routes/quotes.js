@@ -114,7 +114,7 @@ function updateQuote(quote_id, updatesToPerform, callback) {
   });
 
   // return if there are zero
-  if (Object.keys(cleanedUpdates).length == 0) {
+  if (Object.keys(cleanedUpdates).length === 0) {
     callback({ success: false, error: "Zero corrct column names"});
   }
 
