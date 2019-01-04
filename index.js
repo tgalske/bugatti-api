@@ -1,9 +1,10 @@
-require('dotenv').config()
+if (process.env.NODE_ENV === 'develop') {
+  require('dotenv').config()
+}
 var express = require('express');
 var path = require('path');
 var cookieParser = require('cookie-parser');
 var logger = require('morgan');
-
 
 var indexRouter = require('./routes/index');
 var membersRouter = require('./routes/members');

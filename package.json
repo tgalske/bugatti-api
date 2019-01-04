@@ -3,8 +3,8 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "start": "nodemon ./bin/www",
-    "prod": "node ./bin/www"
+    "start": "NODE_ENV=develop nodemon ./bin/www",
+    "prod": "NODE_ENV=prod node ./bin/www"
   },
   "dependencies": {
     "aws-sdk": "^2.378.0",

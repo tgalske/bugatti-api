@@ -74,7 +74,7 @@ function getQuote(quote_id, callback) {
 
 /* Get all quotes by a single member */
 function getQuotesByMember(member_id, callback) {
-  const queryStatement = 'SELECT ' + QUOTES_TABLE_NAME + '.quote_text FROM ' + QUOTES_TABLE_NAME +
+  const queryStatement = 'SELECT * FROM ' + QUOTES_TABLE_NAME +
     ' WHERE ' + QUOTES_TABLE_NAME + '.target_member_id = ?';
   mysql.query(queryStatement, [member_id], (error, results) => {
     if (error) {

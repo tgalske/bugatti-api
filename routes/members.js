@@ -36,14 +36,7 @@ router.get('/:member_id', (req, res) => {
   ])
     .then( (promiseResponse) => {
       var memberResponse = promiseResponse[0][0];
-
-      // pull quote_text from array of quote objects
-      var quotesArr = [];
-      promiseResponse[1].forEach( newQuote => {
-        quotesArr.push(newQuote.quote_text);
-      });
-      memberResponse.quotes = quotesArr;
-
+      memberResponse.quotes = promiseResponse[1];
       res.send(memberResponse);
     });
 });
@@ -122,7 +115,7 @@ function updateMember(member_id, updatesToPerform, callback) {
   });
 
   // return if there are zero
-  if (Object.keys(cleanedUpdates).length == 0) {
+  if (Object.keys(cleanedUpdates).length === 0) {
     callback({ success: false, error: "Zero corrct column names"});
   }
 
