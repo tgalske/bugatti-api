@@ -8,6 +8,8 @@ const uuidv1 = require('uuid/v1');
 
 // constants
 const QUOTES_TABLE_NAME = 'quotes';
+const MEMBERS_TABLE_NAME = 'members';
+
 const TABLE_KEYS = ['quote_text', 'target_member_id', 'author_member_id', 'content_id'];
 
 /* GET all quotes. */
@@ -48,7 +50,10 @@ router.delete('/:quote_id', (req, res) => {
 
 /* Get all quotes */
 function getAllQuotes(callback) {
-  const queryStatement = 'SELECT * FROM ' + QUOTES_TABLE_NAME +
+  const queryStatement = 'SELECT ' + QUOTES_TABLE_NAME + '.*, ' + MEMBERS_TABLE_NAME + '.firstname, ' +
+    MEMBERS_TABLE_NAME + '.nickname' +
+    ' FROM ' + QUOTES_TABLE_NAME + ', ' + MEMBERS_TABLE_NAME +
+    ' WHERE ' + QUOTES_TABLE_NAME + '.target_member_id = ' + MEMBERS_TABLE_NAME + '.member_id' +
     ' ORDER BY ' + QUOTES_TABLE_NAME + '.quote_id DESC';
   mysql.query(queryStatement, (error, results) => {
     if (error) {
