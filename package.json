@@ -3,8 +3,8 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "start": "NODE_ENV=develop nodemon ./bin/www",
-    "prod": "NODE_ENV=prod node ./bin/www"
+    "start": "cross-env NODE_ENV=develop nodemon ./bin/www",
+    "prod": "cross-env NODE_ENV=prod node ./bin/www"
   },
   "dependencies": {
     "aws-sdk": "^2.378.0",
@@ -18,5 +18,8 @@
     "mysql": "^2.16.0",
     "nodemon": "^1.18.9",
     "uuid": "^3.3.2"
+  },
+  "devDependencies": {
+    "cross-env": "^5.2.0"
   }
 }
