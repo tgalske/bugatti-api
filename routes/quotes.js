@@ -118,9 +118,10 @@ function updateQuote(quote_id, updatesToPerform, callback) {
     }
   });
 
-  // return if there are zero
+  // return if there are zero matching keys
   if (Object.keys(cleanedUpdates).length === 0) {
     callback({ success: false, error: "Zero corrct column names"});
+    return;
   }
 
   const queryStatement = 'UPDATE ' + QUOTES_TABLE_NAME +
