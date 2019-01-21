@@ -10,6 +10,7 @@
     "aws-sdk": "^2.378.0",
     "body-parser": "^1.18.3",
     "cookie-parser": "~1.4.3",
+    "cross-env": "^5.2.0",
     "debug": "~2.6.9",
     "dotenv": "^6.2.0",
     "dynamodb-doc": "^1.0.0",
@@ -18,8 +19,5 @@
     "mysql": "^2.16.0",
     "nodemon": "^1.18.9",
     "uuid": "^3.3.2"
-  },
-  "devDependencies": {
-    "cross-env": "^5.2.0"
   }
 }
