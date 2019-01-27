@@ -14,31 +14,14 @@ const TABLE_KEYS = ["firstname", "lastname", "nickname", "phone"];
 // ROUTES
 
 /* GET all members. */
-router.get('/', function(req, res) {
+router.get('/', (req, res) => {
   getMembers((payload) => res.send(payload));
 });
 
 /* GET a single member with quotes*/
 router.get('/:member_id', (req, res) => {
   const member_id = req.params.member_id;
-
-  Promise.all([
-    new Promise( (resolve) => {
-      getMember(member_id, (memberPayload) => {
-        resolve(memberPayload);
-      });
-    }),
-    new Promise( resolve => {
-      quotesRouter.getQuotesByMember(member_id, (quotesPayload) => {
-        resolve(quotesPayload);
-      });
-    })
-  ])
-    .then( (promiseResponse) => {
-      var memberResponse = promiseResponse[0][0];
-      memberResponse.quotes = promiseResponse[1];
-      res.send(memberResponse);
-    });
+  getMemberAndQuotes(member_id, (payload) => res.send(payload));
 });
 
 /* POST a new member */
@@ -83,6 +66,28 @@ function getMember(member_id, callback) {
       callback(results);
     }
   });
+}
+
+/* Get a single member and her quotes */
+function getMemberAndQuotes(member_id, callback) {
+
+  Promise.all([
+    new Promise( (resolve) => {
+      getMember(member_id, (memberPayload) => {
+        resolve(memberPayload);
+      });
+    }),
+    new Promise( resolve => {
+      quotesRouter.getQuotesByMember(member_id, (quotesPayload) => {
+        resolve(quotesPayload);
+      });
+    })
+  ])
+    .then( (promiseResponse) => {
+      var memberResponse = promiseResponse[0][0];
+      memberResponse.quotes = promiseResponse[1];
+      callback(memberResponse);
+    });
 }
 
 /* Create a new member */
@@ -136,11 +141,11 @@ function updateMember(member_id, updatesToPerform, callback) {
 /* Delete a member */
 function deleteMember(member_id, callback) {
   const queryStatement = 'DELETE FROM ' + MEMBERS_TABLE_NAME + ' WHERE member_id = ?';
-  mysql.query(queryStatement, [member_id], (error, results) => {
+  mysql.query(queryStatement, [member_id], (error) => {
     if (error) {
       callback(error);
     } else {
-      callback(results);
+      callback( {success: true} );
     }
   });
 }

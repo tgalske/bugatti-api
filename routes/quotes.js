@@ -13,7 +13,7 @@ const MEMBERS_TABLE_NAME = 'members';
 const TABLE_KEYS = ['quote_text', 'target_member_id', 'author_member_id', 'content_id'];
 
 /* GET all quotes. */
-router.get('/', function(req, res) {
+router.get('/', (req, res)  => {
   getAllQuotes( (payload) => res.send(payload));
 });
 
@@ -91,20 +91,20 @@ function getQuotesByMember(member_id, callback) {
 }
 
 /* Create a new quote */
-function createQuote(quoteInformation, callback) {
-  var cleanedQuoteInformation = {};
-  cleanedQuoteInformation.quote_id = uuidv1();
+function createQuote(quote, callback) {
+  var cleanedQuote = {};
+  cleanedQuote.quote_id = uuidv1();
 
   TABLE_KEYS.forEach( currentKey => {
-    cleanedQuoteInformation[currentKey] = quoteInformation[currentKey] ? quoteInformation[currentKey] : null;
+    cleanedQuote[currentKey] = quote[currentKey] ? quote[currentKey] : null;
   });
 
   const queryStatement = 'INSERT INTO ' + QUOTES_TABLE_NAME + ' SET ?';
-  mysql.query(queryStatement, [cleanedQuoteInformation], (error, result) => {
+  mysql.query(queryStatement, [cleanedQuote], (error) => {
     if (error) {
       callback(error);
     } else {
-      callback(result);
+      callback(cleanedQuote);
     }
   });
 }
@@ -112,9 +112,9 @@ function createQuote(quoteInformation, callback) {
 /* Update a quote */
 function updateQuote(quote_id, updatesToPerform, callback) {
   var cleanedUpdates = {};
-  TABLE_KEYS.forEach( currentKey => {
-    if (updatesToPerform[currentKey]) {
-      cleanedUpdates[currentKey] = updatesToPerform[currentKey];
+  TABLE_KEYS.forEach( requiredKey => {
+    if (updatesToPerform[requiredKey]) {
+      cleanedUpdates[requiredKey] = updatesToPerform[requiredKey];
     }
   });
 
@@ -128,22 +128,22 @@ function updateQuote(quote_id, updatesToPerform, callback) {
     ' SET ? ' +
     ' WHERE ' + QUOTES_TABLE_NAME + '.quote_id = ?';
 
-  mysql.query(queryStatement, [cleanedUpdates, quote_id], (error, results) => {
+  mysql.query(queryStatement, [cleanedUpdates, quote_id], (error) => {
     if (error) {
       callback(error);
     } else {
-      callback(results);
+      getQuote(quote_id, (result) => callback(result));
     }
   });
 }
 
 function deleteQuote(quote_id, callback) {
   const queryStatement = 'DELETE FROM ' + QUOTES_TABLE_NAME + ' WHERE quote_id = ?';
-  mysql.query(queryStatement, [quote_id], (error, results) => {
+  mysql.query(queryStatement, [quote_id], (error) => {
     if (error) {
       callback(error);
     } else {
-      callback(results);
+      callback({success: true});
     }
   });
 }
