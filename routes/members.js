@@ -86,21 +86,20 @@ function getMember(member_id, callback) {
 }
 
 /* Create a new member */
-function createNewMember(memberInformation, callback) {
-
-  var cleanedMemberInformation = {};
-  cleanedMemberInformation.member_id = uuidv1();
+function createNewMember(member, callback) {
+  var cleanedMember = {};
+  cleanedMember.member_id = uuidv1();
 
   TABLE_KEYS.forEach( currentKey => {
-    cleanedMemberInformation[currentKey] = memberInformation[currentKey] ? memberInformation[currentKey] : null;
+    cleanedMember[currentKey] = member[currentKey] ? member[currentKey] : null;
   });
 
   const queryStatement = 'INSERT INTO ' + MEMBERS_TABLE_NAME + ' SET ?';
-  mysql.query(queryStatement, [cleanedMemberInformation], (error, result) => {
+  mysql.query(queryStatement, [cleanedMember], (error) => {
     if (error) {
       callback(error);
     } else {
-      callback(result);
+      callback(cleanedMember);
     }
   });
 }
@@ -108,13 +107,13 @@ function createNewMember(memberInformation, callback) {
 /* Update a member */
 function updateMember(member_id, updatesToPerform, callback) {
   var cleanedUpdates = {};
-  TABLE_KEYS.forEach( currentKey => {
-    if (updatesToPerform[currentKey]) {
-      cleanedUpdates[currentKey] = updatesToPerform[currentKey];
+  TABLE_KEYS.forEach( requiredTableKey => {
+    if (updatesToPerform[requiredTableKey]) {
+      cleanedUpdates[requiredTableKey] = updatesToPerform[requiredTableKey];
     }
   });
 
-  // return if there are zero
+  // return if there are zero matching column names
   if (Object.keys(cleanedUpdates).length === 0) {
     callback({ success: false, error: "Zero corrct column names"});
   }
@@ -123,11 +122,13 @@ function updateMember(member_id, updatesToPerform, callback) {
     ' SET ? ' +
     ' WHERE ' + MEMBERS_TABLE_NAME + '.member_id = ?';
 
-  mysql.query(queryStatement, [cleanedUpdates, member_id], (error, results) => {
+  mysql.query(queryStatement, [cleanedUpdates, member_id], (error) => {
     if (error) {
       callback(error);
     } else {
-      callback(results);
+      getMember(member_id, (result) => {
+        callback(result);
+      });
     }
   })
 }
